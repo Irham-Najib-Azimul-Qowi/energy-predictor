@@ -1,0 +1,32 @@
+name: Monthly Forecast Automation
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # jalan tiap tanggal 1 jam 00:00 UTC (sekitar jam 07:00 pagi WIB)
+  workflow_dispatch:       # bisa dijalankan manual juga lewat tombol "Run workflow"
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          pip install requests pandas numpy statsmodels
+
+      - name: Jalankan Prediksi Bulanan
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_USER_EMAIL: ${{ secrets.FIREBASE_USER_EMAIL }}
+          FIREBASE_USER_PASSWORD: ${{ secrets.FIREBASE_USER_PASSWORD }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          python predict_monthly.py
