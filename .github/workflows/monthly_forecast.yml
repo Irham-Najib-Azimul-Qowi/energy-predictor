@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install requests pandas numpy statsmodels
+          pip install requests pandas numpy statsmodels tqdm
 
       - name: Jalankan Prediksi Bulanan
         env:
