@@ -91,58 +91,6 @@ print("🔮 HASIL PREDIKSI:")
 print(f"   Total Energi: {total_kwh:.2f} kWh")
 print(f"   Estimasi Biaya: Rp{total_cost:,.0f}")
 
-# === 4. HAPUS DATA LEBIH DARI 8760 JAM TERAKHIR ===
-print("🧹 Mengecek dan menghapus data lama di 'power_history'...")
-
-def cleanup_old_power_history():
-    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{collection_name}?pageSize=10000"
-    headers = {"Authorization": f"Bearer {id_token}"}
-    res = requests.get(url, headers=headers)
-    if res.status_code != 200:
-        print("⚠️ Gagal mengambil data:", res.text)
-        return
-
-    docs = res.json().get("documents", [])
-    print(f"📊 Total dokumen saat ini: {len(docs)}")
-
-    # Urutkan berdasarkan timestamp
-    data = []
-    for doc in docs:
-        fields = doc.get("fields", {})
-        timestamp = fields.get("timestamp", {}).get("timestampValue", None)
-        if timestamp:
-            data.append((doc["name"], timestamp))
-
-    data.sort(key=lambda x: x[1])  # urut dari paling lama ke terbaru
-
-    # Jika lebih dari 8760 data, hapus sisanya dari depan
-    if len(data) > 8760:
-        to_delete = data[:len(data) - 8760]
-        print(f"🗑️ Menghapus {len(to_delete)} data lama...")
-        for doc_name, _ in to_delete:
-            requests.delete(f"https://firestore.googleapis.com/v1/{doc_name}", headers=headers)
-        print("✅ Data lama berhasil dihapus.")
-    else:
-        print("✅ Tidak ada data lama yang perlu dihapus (masih di bawah 8760).")
-
-cleanup_old_power_history()
-
-# === HAPUS DATA PREDIKSI LAMA ===
-print("🧹 Menghapus data prediksi lama...")
-
-delete_url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{COLLECTION_FORECAST_DATA}"
-headers = {"Authorization": f"Bearer {id_token}"}
-res = requests.get(delete_url, headers=headers)
-
-if res.status_code == 200:
-    docs = res.json().get("documents", [])
-    for doc in docs:
-        name = doc["name"]
-        requests.delete(f"https://firestore.googleapis.com/v1/{name}", headers=headers)
-    print(f"✅ {len(docs)} data prediksi lama berhasil dihapus.")
-else:
-    print("⚠️ Gagal mengambil data lama untuk dihapus:", res.text)
-
 # === 7. UNGGAH DATA PREDIKSI PER JAM KE FIRESTORE ===
 print("📤 Mengunggah data prediksi per jam...")
 batch_size = 500
