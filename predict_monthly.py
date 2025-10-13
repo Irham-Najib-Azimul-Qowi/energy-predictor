@@ -91,6 +91,22 @@ print("🔮 HASIL PREDIKSI:")
 print(f"   Total Energi: {total_kwh:.2f} kWh")
 print(f"   Estimasi Biaya: Rp{total_cost:,.0f}")
 
+# === HAPUS DATA PREDIKSI LAMA ===
+print("🧹 Menghapus data prediksi lama...")
+
+delete_url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{COLLECTION_FORECAST_DATA}"
+headers = {"Authorization": f"Bearer {id_token}"}
+res = requests.get(delete_url, headers=headers)
+
+if res.status_code == 200:
+    docs = res.json().get("documents", [])
+    for doc in docs:
+        name = doc["name"]
+        requests.delete(f"https://firestore.googleapis.com/v1/{name}", headers=headers)
+    print(f"✅ {len(docs)} data prediksi lama berhasil dihapus.")
+else:
+    print("⚠️ Gagal mengambil data lama untuk dihapus:", res.text)
+
 # === 7. UNGGAH DATA PREDIKSI PER JAM KE FIRESTORE ===
 print("📤 Mengunggah data prediksi per jam...")
 batch_size = 500
