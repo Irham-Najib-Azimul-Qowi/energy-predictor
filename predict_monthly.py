@@ -50,7 +50,14 @@ def fetch_firestore_data():
     df = pd.DataFrame(data)
     df["time"] = pd.to_datetime(df["time"])
     df = df.sort_values("time").reset_index(drop=True)
+
+    # 🔧 FIX: hapus timestamp duplikat
+    df = df.drop_duplicates(subset="time", keep="first")
+    
+    # 🔧 pastikan data berfrekuensi 1 jam penuh
+    df = df.set_index("time").resample("h").mean().interpolate().reset_index()
     return df
+
 
 print("📥 Mengambil data 1 tahun terakhir...")
 df = fetch_firestore_data()
