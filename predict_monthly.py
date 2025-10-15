@@ -134,22 +134,40 @@ for batch_start in tqdm(range(0, len(forecast_df), batch_size)):
 # === 8. SIMPAN DATA RINGKASAN KE FIRESTORE ===
 print("📤 Menyimpan ringkasan biaya bulanan...")
 
+month_key = datetime.now().strftime("%Y_%m")
+summary_doc_name = f"projects/{PROJECT_ID}/databases/(default)/documents/{COLLECTION_FORECAST_SUMMARY}/summary_{month_key}"
+
 summary_payload = {
-    "fields": {
-        "forecast_month": {"stringValue": datetime.now().strftime("%B %Y")},
-        "predicted_total_kwh": {"doubleValue": float(total_kwh)},
-        "predicted_total_cost": {"doubleValue": float(total_cost)},
-        "price_per_kwh": {"doubleValue": PRICE_PER_KWH},
-        "created_at": {"timestampValue": datetime.utcnow().isoformat().replace("+00:00", "Z")}
-    }
+    "writes": [
+        {
+            "update": {
+                "name": summary_doc_name,
+                "fields": {
+                    "forecast_month": {"stringValue": datetime.now().strftime("%B %Y")},
+                    "predicted_total_kwh": {"doubleValue": float(total_kwh)},
+                    "predicted_total_cost": {"doubleValue": float(total_cost)},
+                    "price_per_kwh": {"doubleValue": PRICE_PER_KWH},
+                    "created_at": {"timestampValue": datetime.utcnow().isoformat().replace("+00:00", "Z")}
+                }
+            },
+            "updateMask": {
+                "fieldPaths": [
+                    "forecast_month",
+                    "predicted_total_kwh",
+                    "predicted_total_cost",
+                    "price_per_kwh",
+                    "created_at"
+                ]
+            },
+            "currentDocument": {"exists": False}
+        }
+    ]
 }
 
-summary_url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{COLLECTION_FORECAST_SUMMARY}"
-res = requests.post(summary_url, headers=headers, data=json.dumps(summary_payload))
+summary_url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents:commit"
+res = requests.post(summary_url, headers=headers, json=summary_payload)
 
 if res.status_code in [200, 201]:
-    print("✅ Ringkasan biaya berhasil disimpan!")
+    print(f"✅ Ringkasan biaya bulan {month_key} berhasil disimpan di Firestore!")
 else:
     print("❌ Gagal simpan ringkasan:", res.text)
-
-print("\n🎉 Semua prediksi & ringkasan berhasil dikirim ke Firestore!")
