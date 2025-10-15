@@ -40,7 +40,6 @@ def fetch_firestore_data():
     data = []
     for doc in docs:
         fields = doc["fields"]
-        # Ambil energy_per_hour (bukan power)
         if "energy_per_hour" not in fields:
             continue
         energy = float(fields["energy_per_hour"]["doubleValue"])
@@ -50,14 +49,9 @@ def fetch_firestore_data():
     df = pd.DataFrame(data)
     df["time"] = pd.to_datetime(df["time"], format="ISO8601", utc=True, errors="coerce")
     df = df.sort_values("time").reset_index(drop=True)
-
-    # 🔧 FIX: hapus timestamp duplikat
     df = df.drop_duplicates(subset="time", keep="first")
-    
-    # 🔧 pastikan data berfrekuensi 1 jam penuh
     df = df.set_index("time").resample("h").mean().interpolate().reset_index()
     return df
-
 
 print("📥 Mengambil data 1 tahun terakhir...")
 df = fetch_firestore_data()
@@ -66,8 +60,7 @@ print(f"✅ Ditemukan {len(df)} data energi per jam.")
 
 # === 4. LATIH MODEL SARIMA UNTUK ENERGI ===
 print("🤖 Melatih model SARIMA...")
-ts = df.set_index("time")["energy_per_hour"].asfreq("H")
-ts = ts.fillna(method="ffill")
+ts = df.set_index("time")["energy_per_hour"].asfreq("H").fillna(method="ffill")
 
 model = sm.tsa.statespace.SARIMAX(ts, order=(1,1,1), seasonal_order=(1,1,1,24))
 result = model.fit(disp=False)
@@ -83,9 +76,12 @@ forecast_df = pd.DataFrame({
     "predicted_energy_kwh": forecast
 })
 
-# === 6. HITUNG BIAYA LISTRIK ===
+# === 6. BERSIHKAN NILAI NEGATIF DAN HITUNG BIAYA ===
+forecast_df["predicted_energy_kwh"] = forecast_df["predicted_energy_kwh"].apply(lambda x: max(x, 0))
+forecast_df["predicted_cost"] = forecast_df["predicted_energy_kwh"] * PRICE_PER_KWH
+
 total_kwh = forecast_df["predicted_energy_kwh"].sum()
-total_cost = total_kwh * PRICE_PER_KWH
+total_cost = forecast_df["predicted_cost"].sum()
 
 print("🔮 HASIL PREDIKSI:")
 print(f"   Total Energi: {total_kwh:.2f} kWh")
@@ -103,14 +99,22 @@ for batch_start in tqdm(range(0, len(forecast_df), batch_size)):
     writes = []
 
     for _, row in batch_data.iterrows():
-        doc_name = f"projects/{PROJECT_ID}/databases/(default)/documents/{COLLECTION_FORECAST_DATA}/{month_key}_{row['time'].isoformat()}"
+        timestamp_value = row["time"].isoformat().replace("+00:00", "Z")
+        energy_value = float(row["predicted_energy_kwh"])
+        cost_value = float(row["predicted_cost"])
+
+        doc_name = (
+            f"projects/{PROJECT_ID}/databases/(default)/documents/"
+            f"{COLLECTION_FORECAST_DATA}/{month_key}_{timestamp_value}"
+        )
+
         writes.append({
             "update": {
                 "name": doc_name,
                 "fields": {
-                    "time": {"timestampValue": row["time"].replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
-                    "predicted_energy_kwh": {"doubleValue": float(row["predicted_energy_kwh"])},
-                    # "predicted_cost": {"doubleValue": float(row["predicted_energy_kwh"] * PRICE_PER_KWH)}
+                    "time": {"timestampValue": timestamp_value},
+                    "predicted_energy_kwh": {"doubleValue": energy_value},
+                    "predicted_cost": {"doubleValue": cost_value}
                 }
             },
             "updateMask": {"fieldPaths": ["time", "predicted_energy_kwh", "predicted_cost"]},
@@ -127,7 +131,6 @@ for batch_start in tqdm(range(0, len(forecast_df), batch_size)):
     else:
         print(f"✅ Batch {batch_start} berhasil dikirim.")
 
-
 # === 8. SIMPAN DATA RINGKASAN KE FIRESTORE ===
 print("📤 Menyimpan ringkasan biaya bulanan...")
 
@@ -137,7 +140,7 @@ summary_payload = {
         "predicted_total_kwh": {"doubleValue": float(total_kwh)},
         "predicted_total_cost": {"doubleValue": float(total_cost)},
         "price_per_kwh": {"doubleValue": PRICE_PER_KWH},
-        "created_at": {"timestampValue": datetime.utcnow().isoformat() + "Z"}
+        "created_at": {"timestampValue": datetime.utcnow().isoformat().replace("+00:00", "Z")}
     }
 }
 
