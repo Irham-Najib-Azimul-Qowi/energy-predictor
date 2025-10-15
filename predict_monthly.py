@@ -48,7 +48,7 @@ def fetch_firestore_data():
         data.append({"time": timestamp, "energy_per_hour": energy})
 
     df = pd.DataFrame(data)
-    df["time"] = pd.to_datetime(df["time"])
+    df["time"] = pd.to_datetime(df["time"], format="ISO8601", utc=True, errors="coerce")
     df = df.sort_values("time").reset_index(drop=True)
 
     # 🔧 FIX: hapus timestamp duplikat
