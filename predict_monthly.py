@@ -117,11 +117,16 @@ for batch_start in tqdm(range(0, len(forecast_df), batch_size)):
             "currentDocument": {"exists": False}
         })
 
-    requests.post(
+    res = requests.post(
         f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents:commit",
         headers=headers,
         json={"writes": writes}
     )
+    if res.status_code not in [200, 201]:
+        print("❌ Gagal kirim batch:", res.text)
+    else:
+        print(f"✅ Batch {batch_start} berhasil dikirim.")
+
 
 # === 8. SIMPAN DATA RINGKASAN KE FIRESTORE ===
 print("📤 Menyimpan ringkasan biaya bulanan...")
