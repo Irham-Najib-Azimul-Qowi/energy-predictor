@@ -108,7 +108,7 @@ for batch_start in tqdm(range(0, len(forecast_df), batch_size)):
             "update": {
                 "name": doc_name,
                 "fields": {
-                    "time": {"timestampValue": row["time"].isoformat() + "Z"},
+                    "time": {"timestampValue": row["time"].replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
                     "predicted_energy_kwh": {"doubleValue": float(row["predicted_energy_kwh"])},
                     "predicted_cost": {"doubleValue": float(row["predicted_energy_kwh"] * PRICE_PER_KWH)}
                 }
