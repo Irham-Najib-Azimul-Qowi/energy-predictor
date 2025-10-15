@@ -144,10 +144,10 @@ summary_payload = {
                 "name": summary_doc_name,
                 "fields": {
                     "forecast_month": {"stringValue": datetime.now().strftime("%B %Y")},
-                    "predicted_total_kwh": {"doubleValue": float(total_kwh)},
-                    "predicted_total_cost": {"doubleValue": float(total_cost)},
+                    "predicted_total_kwh": {"doubleValue": abs(float(total_kwh))},
+                    "predicted_total_cost": {"doubleValue": abs(float(total_cost))},
                     "price_per_kwh": {"doubleValue": PRICE_PER_KWH},
-                    "created_at": {"timestampValue": datetime.utcnow().isoformat().replace("+00:00", "Z")}
+                    "created_at": {"timestampValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
                 }
             },
             "updateMask": {
